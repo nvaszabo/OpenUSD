@@ -33,6 +33,12 @@ class TestPseudoRoot(unittest.TestCase):
     def setUp(self):
         self.stage = Usd.Stage.CreateInMemory()
 
+    def testComputeOverInterval(self):
+        pseudoRootSchema = UsdSemantics.LabelsAPI(
+            self.stage.GetPseudoRoot(), "category")
+        with self.assertRaises(Tf.ErrorException):
+            pseudoRootSchema.ComputeOverInterval(Gf.Interval(0, 100))
+
     def testGetAppliedTaxonomies(self):
         self.assertCountEqual(
             UsdSemantics.LabelsAPI.GetDirectTaxonomies(
@@ -52,6 +58,10 @@ class TestUnapplied(unittest.TestCase):
         self.unappliedSchema = UsdSemantics.LabelsAPI(self.rootPrim, "style")
         self.assertFalse(self.unappliedSchema)
 
+    def testComputeOverInterval(self):
+        with self.assertRaises(Tf.ErrorException):
+            self.unappliedSchema.ComputeOverInterval(Gf.Interval(0, 100))
+
     def testGetAppliedTaxonomies(self):
         self.assertCountEqual(
             UsdSemantics.LabelsAPI.GetDirectTaxonomies(self.rootPrim),
@@ -69,6 +79,9 @@ class TestDirectlyApplied(unittest.TestCase):
         self.rootPrim = self.stage.DefinePrim("/Bookcase")
         self.appliedSemantics = \
             UsdSemantics.LabelsAPI.Apply(self.rootPrim, "style")
+        self.appliedSemantics.GetLabelsAttr().Set(self.labels)
+        self.assertFalse(
+            self.appliedSemantics.GetLabelsAttr().ValueMightBeTimeVarying())
 
     def testGetAppliedTaxonomies(self):
         self.assertCountEqual(
@@ -82,6 +95,48 @@ class TestDirectlyApplied(unittest.TestCase):
             ["style"]
         )
 
+    def testComputeAncestorTaxonomies(self):
+        self.assertCountEqual(
+            UsdSemantics.LabelsAPI.ComputeAncestorTaxonomies(self.rootPrim),
+            []
+        )
+
+    def testComputeOverIntervalBeforeFirstTimeSample(self):
+        interval = Gf.Interval(-100, -50)
+        labelsAttr = self.appliedSemantics.GetLabelsAttr()
+        self.assertSequenceEqual(
+            labelsAttr.GetTimeSamplesInInterval(interval), [])
+        self.assertCountEqual(
+            self.appliedSemantics.ComputeOverInterval(interval),
+            self.timeSampledLabels[0])
+
+    def testComputeOverIntervalAfterLastTimeSample(self):
+        interval = Gf.Interval(200, 250)
+        labelsAttr = self.appliedSemantics.GetLabelsAttr()
+        self.assertSequenceEqual(
+            labelsAttr.GetTimeSamplesInInterval(interval), [])
+        self.assertCountEqual(
+            self.appliedSemantics.ComputeOverInterval(interval),
+            self.timeSampledLabels[150])
+
+    def testComputeOverIntervalAroundLastTimeSamples(self):
+        interval = Gf.Interval(125, 300)
+        labelsAttr = self.appliedSemantics.GetLabelsAttr()
+        self.assertCountEqual(
+            labelsAttr.GetTimeSamplesInInterval(interval), [150])
+        self.assertCountEqual(
+            self.appliedSemantics.ComputeOverInterval(interval),
+            set(self.timeSampledLabels[100]).union(self.timeSampledLabels[150]))
+
+    def testComputeOverIntervalAroundALlTimeSamples(self):
+        interval = Gf.Interval(-300, 300)
+        labelsAttr = self.appliedSemantics.GetLabelsAttr()
+        self.assertCountEqual(
+            labelsAttr.GetTimeSamplesInInterval(interval), [0, 100, 150])
+        self.assertCountEqual(
+            self.appliedSemantics.ComputeOverInterval(interval),
+            set(self.timeSampledLabels[0]).union(self.timeSampledLabels[100],
+                                                 self.timeSampledLabels[150]))
 
 class TestHierachy(unittest.TestCase):
     """Test helpers for computing ancestral taxonomies from the hierarchy

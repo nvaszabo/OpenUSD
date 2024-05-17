@@ -41,6 +41,11 @@ The labels create two tiers of semantics: direct and inherited labels.
     * `/OfficeBookshelf/TopShelf/Screw` inherits `furniture`,
       `bookcase`, and `shelf` labels
 
+Workflows around semantic labels should specify whether they are
+capturing direct labels, ancestor labels, or either. It's expected
+but not required that most labeling workflows will check for both
+types of labels.
+
 ## Taxonomy and Comparison to Model Hierarchy
 Model hierarchy is a strict hierarchical taxonomy that
 tries to aid discovery of "important" prims in the scene graph. 
@@ -73,7 +78,13 @@ For example, a prim may be labeled for a particular instance with
 levels of hierarchy in the array values. All labels are weighted 
 equally. There is no implied hierarchy in the order of the labels.
 
+## Labels of Descendants
+Reasoning about the labels of descendants requires reasoning about 
+traversal predicates and instancing. Therefore, there is no 
+specification for this.
+
 ## Time Varying Considerations
+
 Labels may be used to describe actions or states and may vary over time.
 ```
 def Xform "Dog" (
