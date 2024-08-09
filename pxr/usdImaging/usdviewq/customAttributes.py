@@ -5,7 +5,8 @@
 # https://openusd.org/license.
 #
 
-from pxr import Usd, UsdGeom, UsdShade
+from collections import defaultdict
+from pxr import UsdGeom, UsdShade, UsdSemantics
 from pxr.UsdUtils.constantsGroup import ConstantsGroup
 
 
@@ -15,6 +16,7 @@ class ComputedPropertyNames(ConstantsGroup):
     LOCAL_WORLD_XFORM       = "Local to World Xform"
     RESOLVED_PREVIEW_MATERIAL = "Resolved Preview Material"
     RESOLVED_FULL_MATERIAL = "Resolved Full Material"
+    RESOLVED_LABELS        = "Resolved Labels"
 
 #
 # Edit the following to alter the set of custom attributes.
@@ -35,8 +37,9 @@ def _GetCustomAttributes(currentPrim, rootDataModel):
                 LocalToWorldXformAttribute(currentPrim, 
                                            rootDataModel),
                 ResolvedPreviewMaterial(currentPrim, rootDataModel),
-                ResolvedFullMaterial(currentPrim, rootDataModel)]
-
+                ResolvedFullMaterial(currentPrim, rootDataModel),
+                ResolvedLabelsAttribute(currentPrim, rootDataModel),
+        ]
     return []
 
 #
@@ -136,6 +139,23 @@ class ResolvedPreviewMaterial(ResolvedBoundMaterial):
     def __init__(self, currentPrim, rootDataModel):
         ResolvedBoundMaterial.__init__(self, currentPrim, rootDataModel, 
                 UsdShade.Tokens.preview)
+
+#
+# Displays a prim's inherited taxonomies
+#
+class ResolvedLabelsAttribute(CustomAttribute):
+    def GetName(self):
+        return ComputedPropertyNames.RESOLVED_LABELS
+
+    def Get(self, frame):
+        inheritedTaxonomies = UsdSemantics.LabelsAPI.ComputeInheritedTaxonomies(self._currentPrim)
+        resolvedLabels: dict[str, list[str]] = {}
+        for taxonomy in inheritedTaxonomies:
+            query = UsdSemantics.LabelsQuery(taxonomy, frame)
+            labels = query.ComputeUniqueInheritedLabels(self._currentPrim)
+            resolvedLabels[taxonomy] = list(labels)
+        return resolvedLabels
+
 
 class ComputedPropertyFactory:
     """Creates computed properties."""
